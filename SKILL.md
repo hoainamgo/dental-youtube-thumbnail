@@ -1,57 +1,79 @@
 ---
 name: dental-youtube-thumbnail
-description: Tạo YouTube thumbnail cho Nha Khoa Quốc Tế American bằng gpt-image (yescale.io) qua Vercel relay. Kết hợp 2 skill (charlie947/youtube-thumbnail: face focal + hook text + 1280x720; greg-prospyr/thumbcraft: AI mascot brand style). Dùng cho bài nhạc Session 1/Session 2 hoặc video nha khoa. Qua relay né Cloudflare 1010.
+description: Tạo YouTube thumbnail cho Nha Khoa Quốc Tế American (brand răng mascot). Dùng Flux-2-Klein-4B (302.ai $0.014) qua Vercel relay làm chính, yescale gpt-image fallback. Bắt buộc text rõ + 1280x720 ngang. Qua relay né Cloudflare 1010.
 ---
 
 # Dental YouTube Thumbnail — Nha Khoa Quốc Tế American
 
 ## MỤC ĐÍCH
-Tạo thumbnail YouTube chuẩn CTR cao cho kênh nha khoa, dùng `gpt-image` qua yescale.io + Vercel relay (né 1010). Kết hợp tinh hoa 2 skill:
-
-**Skill A (charlie947/youtube-thumbnail):**
-- Face (nha sĩ/mascot) fills 30-50% frame
-- Text 3-5 từ lớn, bold, high-contrast (vàng/trắng viền đen)
-- 1280x720 (16:9), 2 màu chủ đạo + 1 accent
-- No watermark, no bottom-right text (chỗ icon watch)
-
-**Skill B (greg-prospyr/thumbcraft):**
-- AI mascot răng (siêu anh hùng / dễ thương)
-- Brand style nhất quán (gradient hồng-cyan, logo góc)
-- Prompt chi tiết, style channel
+Tạo thumbnail YouTube chuẩn CTR cao cho kênh nha khoa, brand **răng mascot** nhất quán.
+- **Model chính**: Flux-2-Klein-4B (302.ai, $0.014) qua relay — rẻ, nhanh, support 1280x720 ngang.
+- **Fallback**: yescale gpt-image (khi Flux lỗi / cần text sắc nét hơn).
+- Kết hợp tinh hoa: charlie947 (face 30-50%, text 3-5 từ) + greg-prospyr (mascot brand).
 
 ## RELAY & AUTH
 - Relay: `https://replay-proxy-three.vercel.app/api/relay` (edge runtime)
-- Yescale: `Authorization: Bearer <key>` (file `/home/admin/.hermes/profiles/agent3/openai_token.txt`)
-- Script: `gen_image_yescale.py` (từ skill yescale-image-gen)
+- 302.ai key: `/home/admin/.hermes/profiles/agent3/302_key.txt` (Flux chính)
+- Yescale key: `/home/admin/.hermes/profiles/agent3/yescale_token.txt` (fallback)
+- Script: `gen_image_302.py` (Flux) + `gen_image_yescale.py` (yescale) — từ skill yescale-image-gen
 
-## QUY TRÌNH TẠO THUMBNAIL (3 bước)
-1. **Brief**: title bài hát/video + tone (tender/confident/shock) + text hook 3-5 từ
-2. **Prompt**: ghép mascot + face nha sĩ + text + brand colour
-3. **Gen**: `python3 gen_image_yescale.py --model gpt-image --prompt "..." --out thumb.png`
+## 🔴 RULE BẮT BUỘC (user reject 2 lần thiếu text / sai tỉ lệ)
+- PHẢI CÓ TEXT hiển thị rõ (hook 3-5 từ, bold, viền, đọc được ở 320px).
+- PHẢI TỈ LỆ **1280x720 NGANG (16:9)** — user reject bản vuông.
+- Prompt LUÔN có: `Large bold sans-serif text '{HOOK}' ... at top-center` + `16:9` / `1280x720 horizontal`.
+- Sau gen: MỞ ẢNH CHECK (a) có text thật, (b) đúng ngang 16:9 → regenerate nếu thiếu/sai.
 
-## PROMPT MẪU ĐÃ VERIFY
-**Style A (nha sĩ face focal):**
-> YouTube thumbnail 1280x720 16:9. A friendly dentist in white coat (face fills 40% of frame, warm smile, looking at camera) on the left. Large bold sans-serif text 'SMILE CONFIDENT' in yellow with dark outline, top-right. Pastel blue and white background, high contrast, clean modern dental clinic vibe, no watermark, no small text
+## QUY TRÌNH (4 bước)
+1. **Brief**: chủ đề (trồng răng / niềng / tẩy trắng...) + tone (confident/tender/shock) + text hook 3-5 từ
+2. **Brand**: mascot răng + gradient hồng-cyan + logo góc
+3. **Build prompt** (template bên dưới, THÊM `1280x720 horizontal` + text rõ)
+4. **Gen**: `python3 gen_image_302.py --model flux4b --size 1280x720 --prompt "..." --out thumb_dental.png`
 
-**Style B (mascot brand):**
-> AI-generated YouTube thumbnail for dental care channel. Cute smiling tooth mascot holding a giant toothbrush like a superhero, bright gradient background pink to cyan. Large bold sans-serif text 'HEALTHY SMILE' in white with dark outline at top-center. Bold channel logo bottom-left corner. Consistent brand style, eye-catching, professional, 16:9, no watermark, no small text
+## 🎯 FLUX PROMPTING GUIDE (áp dụng cho dental luôn)
+- ❌ KHÔNG negative prompt (Flux phạt ngược)
+- ✅ Flowing prose: subject → setting → details → lighting → mood
+- ✅ Hex color codes cụ thể (#A8D8EA pastel blue, #F7B7C8 pink, #FFD93D yellow)
+- ✅ Cinematic keywords: "volumetric backlight", "anamorphic flare", "shallow depth of field", "8k detail, film grain"
+- ✅ Charlier947: face/mascot 30-50% frame, text 3-5 từ, 2 màu chủ đạo, high contrast
 
-**Style C (thumbnail bài nhạc S2 #1 - Stumbling First Words):**
-> YouTube thumbnail for song 'Stumbling First Words' - tender Pop-R&B love song about shy first confession. Cute smiling tooth mascot holding a folded love note, soft pastel pink and warm sunset gradient background, big space for bold title text at top, dreamy romantic music vibe, eye-catching clean modern style
+## 6 PHONG CÁCH (đồng bộ chuẩn music skill)
+> Thay `{HOOK}` / `{SCENE}` cho bài nha khoa. Giữ prose + hex + cinematic.
+- **A. Clinic Confident**: nha sĩ face 40% + mascot, bright white/pastel blue, "SMILE CONFIDENT"
+- **B. Mascot Hero**: răng mascot siêu anh hùng, gradient hồng-cyan, "HEALTHY SMILE"
+- **C. Healing Pink (Chữa lành / nhẹ nhàng)**: viền trái tim, ngôi sao mờ ảo, gam hồng ấm — dùng cho chủ đề êm dịu (vd chăm sóc bé, tẩy trắng nhẹ)
+- **D. Neo-Noir**: phòng khám đêm, neon xanh, dramatic — dùng shock/before-after
+- **E. Golden Trust**: golden-hour, ấm áp, gia đình — dùng chủ đề niềm tin/lâu năm
+- **F. Epic Cinemascope**: răng mascot bay trên city dusk, grand scale
+
+### Prompt mẫu (Style A — Clinic Confident, copy đổi hook):
+```text
+Cinematic YouTube thumbnail 16:9 for dental clinic. LARGE bold sans-serif text 'SMILE CONFIDENT' in #FFD93D with #1A3A5A outline at top-center, readable small. A friendly dentist in white coat (face fills 40% frame, warm smile) on left, a cute smiling tooth mascot on right, pastel blue #A8D8EA and white background, soft bokeh, shallow depth of field, bright clean clinic vibe, glossy highlights, 8k detail, film grain, no watermark
+```
+
+### Prompt mẫu (Style C — Healing Pink, copy đổi hook):
+```text
+Cinematic YouTube thumbnail 16:9 for dental care. LARGE bold rounded sans-serif text '{HOOK}' in #FFF0F5 with #C2185B outline at top-center, readable small. A cute tooth mascot wrapped in a soft glowing heart-shaped frame border, pastel pink #F8BBD0 and warm rose #F48FB1 palette, gentle floating stars and soft bokeh light orbs, dreamy low-contrast glow, volumetric soft pink backlight, shallow depth of field, warm loving healing mood, glossy soft highlights, ethereal atmosphere, 8k detail, subtle film grain, no watermark
+```
 
 ## BRAND COLOURS (Nha Khoa Quốc Tế American)
 - Primary: pastel blue (#A8D8EA)
 - Accent: pastel pink (#F7B7C8) / yellow (#FFD93D) cho text
 - Background: white / gradient hồng-xanh
 
+## FALLBACK YESCALE (khi Flux lỗi)
+```bash
+python3 gen_image_yescale.py --model gpt-image --prompt "..." --out thumb_dental.png
+```
+> yescale size 1024x1024 (không nhận 1280x720) → upscale sau nếu cần. Hay gặp 403 quota → quay lại Flux.
+
 ## PITFALLS
-- gpt-image hay sinh text bị lỗi chính tả → check kỹ, regenerate nếu cần
-- size luôn 1024x1024 (yescale gpt-image không nhận 1280x720, upscale sau nếu cần)
-- quality=low đủ dùng thumbnail web
-- Qua relay không 1010
+- Flux hay bỏ/sai text → check kỹ, regenerate.
+- Luôn `--size 1280x720` cho Flux.
+- BATCH: dùng `terminal(background=true)` (KHÔNG nohup/setsid).
+- ⚠️ 302.ai: CHỈ Flux-2-Klein-4B chạy được (GLM/Kling cần enable).
+- ⚠️ yescale 403 = quota/key sai (KHÔNG phải 1010). Hết quota → Flux.
 
 ## KẾT QUẢ VERIFY (2026-07-20)
-- thumb_skill1_youtube_style.png (1.8MB) - nha sĩ + SMILE CONFIDENT
-- thumb_skill2_thumbcraft_text.png (1.6MB) - mascot + HEALTHY SMILE
-- thumb_s2_01_stumbling_first_words.png (1.5MB) - bài hát S2#1
-- Đều qua gpt-image + relay
+- thumb_skill1_youtube_style.png (1.8MB) - nha sĩ + SMILE CONFIDENT (yescale)
+- thumb_skill2_thumbcraft_text.png (1.6MB) - mascot + HEALTHY SMILE (yescale)
+- Đã nâng cấp chuẩn: Flux chính + 1280x720 + Healing Pink style + Flux guide
